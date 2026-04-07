@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: stock-ai-api
+    runtime: node
+    buildCommand: npm install
+    startCommand: node server.cjs
+    envVars:
+      - key: MOONSHOT_API_KEY
+        value: sk-8V2x1qL9mK3pR7tN4wY6bJ8hF5cX2zA1vE4rT7yU0iO3lP6kM9nB2gH5dQ8jW1
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
