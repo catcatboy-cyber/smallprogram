@@ -1,9 +1,15 @@
 const express = require('express');
 const cors = require('cors');
-const yahooFinance = require('yahoo-finance2').default;
 
 const app = express();
 const PORT = process.env.PORT || 10000;
+
+// 动态导入 yahoo-finance2
+let yahooFinance;
+(async () => {
+  const module = await import('yahoo-finance2');
+  yahooFinance = module.default;
+})();
 
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
@@ -84,13 +90,27 @@ function getPeriodStart(period) {
   return Math.floor(startDate.getTime() / 1000);
 }
 
+// 等待 yahooFinance 初始化
+const waitForYahooFinance = async () => {
+  let retries = 0;
+  while (!yahooFinance && retries < 50) {
+    await new Promise(resolve => setTimeout(resolve, 100));
+    retries++;
+  }
+  if (!yahooFinance) {
+    throw new Error('Yahoo Finance module failed to load');
+  }
+  return yahooFinance;
+};
+
 // 获取股票基本信息
 app.get('/api/stock/:symbol/info', async (req, res) => {
   try {
     const { symbol } = req.params;
     console.log(`[${new Date().toISOString()}] Fetching info for ${symbol}`);
     
-    const quote = await yahooFinance.quote(symbol);
+    const yf = await waitForYahooFinance();
+    const quote = await yf.quote(symbol);
     
     const currentPrice = quote.regularMarketPrice || quote.price || 0;
     const previousClose = quote.regularMarketPreviousClose || currentPrice;
@@ -125,8 +145,9 @@ app.get('/api/stock/:symbol/history', async (req, res) => {
     const { period = '6mo', interval = '1d' } = req.query;
     console.log(`[${new Date().toISOString()}] Fetching history for ${symbol}`);
     
+    const yf = await waitForYahooFinance();
     const queryOptions = { period1: getPeriodStart(period), interval };
-    const result = await yahooFinance.historical(symbol, queryOptions);
+    const result = await yf.historical(symbol, queryOptions);
     
     const historicalPrices = result.map(item => ({
       date: item.date.toISOString().split('T')[0],
@@ -148,7 +169,8 @@ app.get('/api/stock/:symbol/history', async (req, res) => {
 app.get('/api/stock/:symbol/financials', async (req, res) => {
   try {
     const { symbol } = req.params;
-    const quote = await yahooFinance.quote(symbol);
+    const yf = await waitForYahooFinance();
+    const quote = await yf.quote(symbol);
     
     const financialData = {
       revenue: (quote.totalRevenue || 0) / 1e9,
@@ -169,7 +191,8 @@ app.get('/api/stock/:symbol/financials', async (req, res) => {
 app.get('/api/stock/:symbol/news', async (req, res) => {
   try {
     const { symbol } = req.params;
-    const news = await yahooFinance.search(symbol);
+    const yf = await waitForYahooFinance();
+    const news = await yf.search(symbol);
     
     const newsItems = (news.news || []).slice(0, 5).map(item => ({
       title: item.title,
