@@ -9,7 +9,7 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
 // OpenRouter 模型配置
-const OPENROUTER_MODEL = 'deepseek/deepseek-chat';
+const OPENROUTER_MODEL = 'google/gemma-4-31b-it';
 
 // 格式化市值
 const formatMarketCap = (value) => {
